@@ -1,0 +1,6 @@
+.env
+.env.ini
+
+*.ovpn
+config/
+docker-compose.ports.yml
