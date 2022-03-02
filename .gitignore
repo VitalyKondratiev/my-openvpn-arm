@@ -4,3 +4,4 @@
 *.ovpn
 config/
 docker-compose.ports.yml
+.routes

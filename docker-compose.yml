@@ -10,3 +10,23 @@ services:
     restart: always
     volumes:
      - ./config:/etc/openvpn
+    networks:
+      vpn_net:
+        ipv4_address: 172.99.0.2
+  expect-telnet:
+    build:
+      context: ./docker/expect-telnet
+    environment:
+      ROUTER_ADDRESS: "${ROUTER_ADDRESS}"
+      ROUTER_USERNAME: "${ROUTER_USERNAME}"
+      ROUTER_PASSWORD: "${ROUTER_PASSWORD}"
+    networks:
+      vpn_net:
+        ipv4_address: 172.99.0.3
+networks:
+  vpn_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.99.0.0/24
+          gateway: 172.99.0.1
