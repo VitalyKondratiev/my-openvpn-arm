@@ -18,6 +18,9 @@ function set_compose_ports {
     done
 }
 
+#changing directory
+cd "$(dirname "$0")"
+
 #run docker if must been enabled, but disabled
 if test $(get_value global enabled) -eq 1; then
     set_compose_ports
@@ -25,9 +28,6 @@ if test $(get_value global enabled) -eq 1; then
 else
     exit
 fi
-
-#changing directory
-cd "$(dirname "$0")"
 
 #remove rules
 docker-compose exec openvpn sh -c 'iptables -F FORWARD'
