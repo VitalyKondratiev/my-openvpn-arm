@@ -1,18 +1,42 @@
 version: '3.5'
 services:
   openvpn:
+    build:
+      context: ./docker/openvpn
     cap_add:
      - NET_ADMIN
-    image: giggio/openvpn-arm
     container_name: openvpn
     ports:
      - "1194:1194"
     restart: always
     volumes:
-     - ./config:/etc/openvpn
+     - ./config_ovpn:/etc/openvpn
+     - ./share:/usr/local/share
     networks:
       vpn_net:
         ipv4_address: 172.99.0.2
+  wireguard:
+    build:
+      context: ./docker/wireguard
+    cap_add:
+     - NET_ADMIN
+     - SYS_MODULE
+    container_name: wireguard
+    environment:
+      PUID: 1000
+      PGID: 1000
+      PEERS: "${WG_PEERS}"
+      SERVERURL: "${WG_SERVER}"
+      INTERNAL_SUBNET: 192.168.255.0
+    ports:
+     - "51820:51820/udp"
+    restart: always
+    volumes:
+     - ./config_wg:/config
+     - ./share:/usr/local/share
+    networks:
+      vpn_net:
+        ipv4_address: 172.99.0.3
   expect-telnet:
     build:
       context: ./docker/expect-telnet
@@ -22,7 +46,7 @@ services:
       ROUTER_PASSWORD: "${ROUTER_PASSWORD}"
     networks:
       vpn_net:
-        ipv4_address: 172.99.0.3
+        ipv4_address: 172.99.0.4
 networks:
   vpn_net:
     driver: bridge

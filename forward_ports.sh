@@ -61,3 +61,6 @@ echo "[forward rules]"
 docker-compose exec openvpn sh -c 'iptables -v -L FORWARD -n --line-number'
 echo "[prerouting rules]"
 docker-compose exec openvpn sh -c 'iptables -t nat -v -L PREROUTING -n --line-number'
+
+#save to share/.rules
+docker-compose exec openvpn sh -c 'iptables-save > /usr/local/share/.rules'

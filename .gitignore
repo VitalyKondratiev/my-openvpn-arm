@@ -2,6 +2,8 @@
 .env.ini
 
 *.ovpn
-config/
+config_ovpn/
+config_wg/
+share/
 docker-compose.ports.yml
 .routes
