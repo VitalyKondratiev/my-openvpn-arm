@@ -8,8 +8,6 @@ function get_value {
     unset FP_PARAMETER_NAME
 }
 
-FP_VPN_TYPE=$(get_value global type)
-
 function set_compose_ports {
     sed -i "3s/\w*:/$FP_VPN_TYPE:/g" docker-compose.ports.yml
     sed -i '5,$ d' docker-compose.ports.yml
@@ -23,6 +21,8 @@ function set_compose_ports {
 
 #changing directory
 cd "$(dirname "$0")"
+
+FP_VPN_TYPE=$(get_value global type)
 
 set_compose_ports
 
@@ -59,6 +59,11 @@ do
     unset FP_NEW_RULE_FORWARD
 done
 
+#save rules to external file
 docker-compose run $ sh -c "$FP_RULES && iptables-save > /usr/local/share/.rules" 2> /dev/null
 
+#add executor to end of WG PostUp
+[ -f ./config_wg/wg0.conf ] && cat ./config_wg/wg0.conf | grep -i '^PostUp.*MASQUERADE' && sed -i '/^PostUp =.*MASQUERADE$/ s/$/; sh \/entrypoint.sh/' ./config_wg/wg0.conf
+
+#restart if needed
 [ "$FP_DOCKER_RUNNING" -eq 1 ] && docker-compose up -d

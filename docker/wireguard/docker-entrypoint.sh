@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/bin/sh
 
-[ -f /usr/local/share/.rules ] && iptables-restore < /usr/local/share/.rules
+[ -f /usr/local/share/.rules ] && iptables-restore -n < /usr/local/share/.rules
 
 exec "$@"
