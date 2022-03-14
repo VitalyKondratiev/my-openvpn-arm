@@ -8,40 +8,40 @@ function get_value {
     unset FP_PARAMETER_NAME
 }
 
+FP_VPN_TYPE=$(get_value global type)
+
 function set_compose_ports {
+    sed -i "3s/\w*:/$FP_VPN_TYPE:/g" docker-compose.ports.yml
     sed -i '5,$ d' docker-compose.ports.yml
     for fp_service in $(echo $(get_value global services) | tr ',' "\n")
     do
-	FP_PORT=$(get_value $fp_service port)
-	sed -i "$ a \ \ \ \ \ \ \ -\ \"$FP_PORT:$FP_PORT\"" docker-compose.ports.yml
-	unset FP_PORT
+        FP_PORT=$(get_value $fp_service port)
+        sed -i "$ a \ \ \ \ \ \ \ -\ \"$FP_PORT:$FP_PORT\"" docker-compose.ports.yml
+        unset FP_PORT
     done
 }
 
 #changing directory
 cd "$(dirname "$0")"
 
-#run docker if must been enabled, but disabled
-if test $(get_value global enabled) -eq 1; then
-    set_compose_ports
-    docker-compose down && docker-compose up -d
+set_compose_ports
+
+#check if docker running
+if [ $(docker-compose ps -q | wc -l) -eq 0 ]; then
+    FP_DOCKER_RUNNING=0
 else
-    exit
+    docker-compose down
+    FP_DOCKER_RUNNING=1
 fi
 
+FP_RULES="iptables -F FORWARD"
+
 #remove rules
-docker-compose exec openvpn sh -c 'iptables -F FORWARD'
-
-for fp_rule_index in $(docker-compose exec openvpn sh -c 'iptables --line-numbers --list PREROUTING -t nat' | awk '$2=="DNAT" {print $1}')
+for fp_rule_index in $(docker-compose run $FP_VPN_TYPE sh -c 'iptables --line-numbers --list PREROUTING -t nat' | awk '$2=="DNAT" {print $1}' | sort -r)
 do
-    FP_RULE_INDEXES="$fp_rule_index $FP_RULE_INDEXES"
+    FP_NEW_RULE_REMOVE=$(echo "iptables -t nat -D PREROUTING $fp_rule_index")
+    FP_RULES=$(echo -e "${FP_RULES} && ${FP_NEW_RULE_REMOVE}")
 done
-
-for fp_rule_index in $FP_RULE_INDEXES
-do
-    docker-compose exec openvpn sh -c "iptables -t nat -D PREROUTING $fp_rule_index"
-done
-unset FP_RULE_INDEXES
 
 #add rules
 
@@ -50,17 +50,15 @@ do
     FP_RULE_MACHINE_IP=$(get_value $fp_service machine_ip)
     FP_RULE_PORT=$(get_value $fp_service port)
     echo "[$fp_service] $FP_RULE_MACHINE_IP:$FP_RULE_PORT"
-    docker-compose exec openvpn sh -c "iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $FP_RULE_PORT -j DNAT --to $FP_RULE_MACHINE_IP:$FP_RULE_PORT"
-    docker-compose exec openvpn sh -c "iptables -A FORWARD -p tcp -d $FP_RULE_MACHINE_IP --dport $FP_RULE_PORT -j ACCEPT"
+    FP_NEW_RULE_PREROUTING=$(echo "iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $FP_RULE_PORT -j DNAT --to $FP_RULE_MACHINE_IP:$FP_RULE_PORT")
+    FP_NEW_RULE_FORWARD=$(echo "iptables -A FORWARD -p tcp -d $FP_RULE_MACHINE_IP --dport $FP_RULE_PORT -j ACCEPT")
+    FP_RULES=$(echo -e "${FP_RULES} && ${FP_NEW_RULE_PREROUTING} && ${FP_NEW_RULE_FORWARD}")
     unset FP_RULE_MACHINE_IP
     unset FP_RULE_PORT
+    unset FP_NEW_RULE_PREROUTING
+    unset FP_NEW_RULE_FORWARD
 done
 
-#list rules
-echo "[forward rules]"
-docker-compose exec openvpn sh -c 'iptables -v -L FORWARD -n --line-number'
-echo "[prerouting rules]"
-docker-compose exec openvpn sh -c 'iptables -t nat -v -L PREROUTING -n --line-number'
+docker-compose run $ sh -c "$FP_RULES && iptables-save > /usr/local/share/.rules" 2> /dev/null
 
-#save to share/.rules
-docker-compose exec openvpn sh -c 'iptables-save > /usr/local/share/.rules'
+[ "$FP_DOCKER_RUNNING" -eq 1 ] && docker-compose up -d
